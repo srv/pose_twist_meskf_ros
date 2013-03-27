@@ -1,0 +1,31 @@
+<launch>
+
+ 	<arg name="bagfile" default="<!-- your bag file here -->"/>
+
+	<arg name="camera" default="<!-- your camera namespace -->" />
+
+	<!-- Run the bag file -->
+	<node pkg="rosbag" type="play" name="rosbag" args="--clock $(arg bagfile)"/>
+
+	<!-- Run the stereo image proc in the camera namespace -->
+	<group ns="$(arg camera)">
+		<node pkg="stereo_image_proc" type="stereo_image_proc" name="stereo_image_proc"/>
+	</group>
+
+	<!-- Run some visual odometer -->
+	<node pkg="viso2_ros" type="stereo_odometer" name="stereo_odometer">
+		<remap from="stereo" to="$(arg camera)"/>
+		<remap from="image" to="image_rect"/>
+	</node>
+
+	<!-- Run the meskf node -->
+	<node pkg="pose_twist_meskf_ros" type="pose_twist_meskf_node" name="pose_twist_meskf_node" output="screen">
+		<!-- Parameters -->
+		<rosparam command="load" file="$(find pose_twist_meskf_ros)/etc/default_parameters.yaml" />
+		<!-- Remappings -->
+		<remap from="imu" to="<!-- your imu topic here -->"/>
+		<remap from="visual_odometry" to="<!-- your visual odometry topic here -->"/>
+		<remap from="depth" to="<!-- your depth topic here -->"/>
+	</node>
+	
+</launch>

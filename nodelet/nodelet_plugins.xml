@@ -1,0 +1,23 @@
+<library path="lib/libpose_twist_meskf_nodelet">
+  <class name="pose_twist_meskf/pose_twist_meskf_nodelet"
+         type="pose_twist_meskf::PoseTwistMESKFNodelet"
+         base_class_type="nodelet::Nodelet">
+    <description>
+      Pose-twist multiplicative error state Kalman filtering nodelet.
+    </description>
+  </class>
+</library>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
