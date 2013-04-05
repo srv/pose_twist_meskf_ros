@@ -15,18 +15,18 @@ gravity_y: 0.0
 gravity_z: 9.80665
 
 # Variances
-var_acc: +1.33e-3
-var_acc_bias: +3.33e-6
-var_gyro: +1e-10
-var_gyro_drift: +1e-12
+var_acc: +4e-5
+var_acc_bias: +1e-10
+var_gyro: +1e-6
+var_gyro_drift: +1e-10
 
-# Covariance for the Error State Vector
+# Covariance for the Error State Vector: [POS_XY - VEL - ACC - ORI - GYRO - POS_Z]
 cov_error_state: [+1.0e+7, +1.0e+7, +1.0e+3, +0.1, +1.0e+5, +1.0e-12]
 
-# Covariance for the visual odometry when NO failure
-cov_visual_odom: [+1.0e-2, +1.0e+8, +1.4e-5, +1.0e+2, +1.4e-5, +1.0e+5]
+# Covariance for the visual odometry when NO failure: [POS_XY - ORI - VEL - ACC - GYRO - POS_Z]
+cov_visual_odom: [+1.0e-2, +1.0e+8, +1.4e-5, +1.0e+7, +1.4e-5, +1.0e+5]
 
-# Covariance for the visual odometry when failure
+# Covariance for the visual odometry when failure: [POS_XY - ORI - VEL - ACC - GYRO - POS_Z]
 cov_visual_odom_failure: [+1.0e+12, +1.0e+12, +1.0e+12, +1.0e+12, +1.0e+12, +1.0e+5]
 
 # Covariance for the depth measurement

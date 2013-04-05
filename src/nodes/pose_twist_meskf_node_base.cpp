@@ -141,10 +141,10 @@ void pose_twist_meskf::PoseTwistMESKFNodeBase::initializeParameters()
   priv_.param("gravity_x", G_VEC_(0), 0.0);
   priv_.param("gravity_y", G_VEC_(1), 0.0);
   priv_.param("gravity_z", G_VEC_(2), 9.80665);
-  priv_.param("var_acc", VAR_ACC_, (4e-3)/3);
-  priv_.param("var_acc_bias", VAR_ACC_BIAS_, (1e-5)/3);
-  priv_.param("var_gyro", VAR_GYRO_, 1e-10);
-  priv_.param("var_gyro_drift", VAR_GYRO_DRIFT_, 1e-12);
+  priv_.param("var_acc", VAR_ACC_, 4e-5);
+  priv_.param("var_acc_bias", VAR_ACC_BIAS_, 1e-10);
+  priv_.param("var_gyro", VAR_GYRO_, 1e-6);
+  priv_.param("var_gyro_drift", VAR_GYRO_DRIFT_, 1e-10);
 
   // Read user-defined covariances
   if (!use_topic_cov_)
@@ -275,15 +275,17 @@ IMUCallback(const sensor_msgs::ImuConstPtr& msg)
 {
   if (!filter_initialized_) return;
 
-  InputVector input;
-  input.time_incr_ = msg->header.stamp.toSec();
-  input.ang_vel_ = Eigen::Vector3d(msg->angular_velocity.x,
-                                   msg->angular_velocity.y,
-                                   msg->angular_velocity.z);
-  input.lin_acc_ = Eigen::Vector3d(msg->linear_acceleration.x,
-                                   msg->linear_acceleration.y,
-                                   msg->linear_acceleration.z);
-  filter_.addInput(input.time_incr_, input.toVector());
+  PoseTwistMESKF::Vector input(6);
+
+  // Set the input
+  input(InputVector::LIN_ACC_X) = msg->linear_acceleration.x;
+  input(InputVector::LIN_ACC_Y) = msg->linear_acceleration.y;
+  input(InputVector::LIN_ACC_Z) = msg->linear_acceleration.z;
+  input(InputVector::ANG_VEL_X) = msg->angular_velocity.x;
+  input(InputVector::ANG_VEL_Y) = msg->angular_velocity.y;
+  input(InputVector::ANG_VEL_Z) = msg->angular_velocity.z;
+
+  filter_.addInput(msg->header.stamp.toSec(), input);
 }
 
 
@@ -302,7 +304,6 @@ visualCallback(const nav_msgs::OdometryConstPtr& msg)
   }
 
   double timestamp = msg->header.stamp.toSec();
-
   PoseTwistMESKF::Vector measurement(VisualMeasurementVector::DIMENSION);
   measurement(VisualMeasurementVector::POSITION_X) = msg->pose.pose.position.x;
   measurement(VisualMeasurementVector::POSITION_Y) = msg->pose.pose.position.y;
