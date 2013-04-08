@@ -69,7 +69,3 @@ rosbuild_add_library(pose_twist_meskf_nodelet
 target_link_libraries(pose_twist_meskf_nodelet
                         pose_twist_meskf)
 
-rosbuild_add_executable(test_sfly EXCLUDE_FROM_ALL 
-                          test/test_sfly_main.cpp)
-target_link_libraries(test_sfly
-                        pose_twist_meskf)
