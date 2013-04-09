@@ -64,8 +64,7 @@ namespace pose_twist_meskf
 class PoseTwistMESKFNodeBase
 {
 public:
-  PoseTwistMESKFNodeBase(const ros::NodeHandle& node,
-                         const ros::NodeHandle& priv);
+  PoseTwistMESKFNodeBase();
   void initializeMeskf();
   void initializeParameters();
   void advertiseTopics();
