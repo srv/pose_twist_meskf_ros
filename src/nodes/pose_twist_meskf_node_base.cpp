@@ -20,11 +20,10 @@
  * @return
  */
 pose_twist_meskf::PoseTwistMESKFNodeBase::
-PoseTwistMESKFNodeBase(): filter_initialized_(false)
-{
-  ros::NodeHandle node_;
-  ros::NodeHandle priv_("~");
-  
+PoseTwistMESKFNodeBase(const ros::NodeHandle& node,
+                       const ros::NodeHandle& priv)
+: node_(node), priv_(priv), filter_initialized_(false)
+{ 
   // Node parameters.
   initializeParameters();
 

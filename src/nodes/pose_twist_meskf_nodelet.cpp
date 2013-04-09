@@ -39,7 +39,10 @@ pose_twist_meskf::PoseTwistMESKFNodelet::PoseTwistMESKFNodelet()
  */
 void pose_twist_meskf::PoseTwistMESKFNodelet::onInit()
 {
-  pose_twist_meskf_node_.reset(new PoseTwistMESKFNodeBase());
+  ros::NodeHandle node(getNodeHandle());
+  ros::NodeHandle priv(getPrivateNodeHandle());
+
+  pose_twist_meskf_node_.reset(new PoseTwistMESKFNodeBase(node, priv));
 }
 
 
