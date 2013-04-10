@@ -49,8 +49,8 @@ rosbuild_add_library(pose_twist_meskf
 include_directories(src/filter)
 
 rosbuild_add_executable(pose_twist_meskf_node 
-                          src/nodes/pose_twist_meskf_node.cpp)
+                          src/nodes/pose_twist_meskf_node.cpp
+                          src/nodes/pose_twist_meskf_node_base.cpp)
 target_link_libraries(pose_twist_meskf_node
                         pose_twist_meskf)
 rosbuild_link_boost(pose_twist_meskf_node signals)
-

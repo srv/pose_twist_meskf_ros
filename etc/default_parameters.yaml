@@ -1,5 +1,5 @@
-# Filter update and publishing frequency (Hz)
-update_rate: 0.1
+# Filter update and publishing frequency (ms)
+update_rate: 0.015
 
 # Frame names
 frame_id: map
@@ -15,10 +15,10 @@ gravity_y: 0.0
 gravity_z: 9.80665
 
 # Variances
-var_acc: +4e-5
-var_acc_bias: +1e-10
-var_gyro: +1e-6
-var_gyro_drift: +1e-10
+var_acc: 4e-5
+var_acc_bias: 1e-10
+var_gyro: 1e-6
+var_gyro_drift: 1e-10
 
 # Covariance for the Error State Vector: [POS_XY - VEL - ACC - ORI - GYRO - POS_Z]
 cov_error_state: [+1.0e+7, +1.0e+7, +1.0e+3, +0.1, +1.0e+5, +1.0e-12]
@@ -30,4 +30,4 @@ cov_visual_odom: [+1.0e-2, +1.0e+8, +1.4e-5, +1.0e+7, +1.4e-5, +1.0e+5]
 cov_visual_odom_failure: [+1.0e+12, +1.0e+12, +1.0e+12, +1.0e+12, +1.0e+12, +1.0e+5]
 
 # Covariance for the depth measurement
-cov_depth: +1.0e-12
+cov_depth: 1.0e-12
