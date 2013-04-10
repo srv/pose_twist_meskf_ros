@@ -7,7 +7,7 @@ child_frame_id: base_link
 visual_odometry_frame_id: visual_odom
 
 # True to use topic covariances. False to use user-defined covariances.
-use_topic_cov: false;
+use_topic_cov: true;
 
 # Gravity 
 gravity_x: 0.0

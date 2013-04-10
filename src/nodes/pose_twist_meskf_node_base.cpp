@@ -149,7 +149,6 @@ void pose_twist_meskf::PoseTwistMESKFNodeBase::initializeParameters(const ros::N
   local_nh.param<std::string>("visual_odometry_frame_id", visual_odom_frame_id_,
                            "/odom");
   local_nh.param("use_topic_cov", use_topic_cov_, false);
-
   update_rate_ = readDoubleParameter(local_nh, "update_rate", "0.1");
   G_VEC_(0) = readDoubleParameter(local_nh, "gravity_x", "0.0");
   G_VEC_(1) = readDoubleParameter(local_nh, "gravity_y", "0.0");
@@ -291,7 +290,7 @@ IMUCallback(const sensor_msgs::ImuConstPtr& msg)
   input(InputVector::ANG_VEL_Z) = msg->angular_velocity.z;
 
   filter_.addInput(msg->header.stamp.toSec(), input);
-  ROS_DEBUG_STREAM("IMU measurement stored");
+  ROS_DEBUG_STREAM("IMU measurement encued");
 }
 
 
@@ -350,6 +349,7 @@ visualCallback(const nav_msgs::OdometryConstPtr& msg)
       && msg->pose.pose.position.z == 0.0)
     {
       covariance = COV_VISUAL_ODOM_FAILURE_;
+      ROS_DEBUG_STREAM("Visual odometry failure. Using covariance: COV_VISUAL_ODOM_FAILURE");
     }
     else
     {
@@ -358,7 +358,7 @@ visualCallback(const nav_msgs::OdometryConstPtr& msg)
   }
   
   filter_.addMeasurement(filter_.VISUAL, measurement, covariance, timestamp);
-  ROS_DEBUG_STREAM("VISUAL_ODOM measurement stored");
+  ROS_DEBUG_STREAM("VISUAL_ODOM measurement encued");
 }
 
 /**
@@ -385,7 +385,7 @@ depthCallback(const auv_sensor_msgs::Depth& msg)
   // AUV_sensor_msgs::Depth has no covariance field
 
   filter_.addMeasurement(filter_.DEPTH, measurement, COV_DEPTH_, timestamp);
-  ROS_DEBUG_STREAM("DEPTH measurement stored");
+  ROS_DEBUG_STREAM("DEPTH measurement encued");
 }
 
 
