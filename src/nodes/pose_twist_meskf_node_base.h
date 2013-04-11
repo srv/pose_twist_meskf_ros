@@ -14,6 +14,7 @@
 #include <auv_sensor_msgs/Depth.h>
 #include <geometry_msgs/Vector3Stamped.h>
 #include "pose_twist_meskf.h"
+#include "visual_measurement_vector.h"
 
 namespace pose_twist_meskf
 {
@@ -113,6 +114,10 @@ private:
   
   // Standard gravity vector in reference frame.
   Eigen::Vector3d G_VEC_;
+
+  // Previous orientation measurement for acceleration computation
+  VisualMeasurementVector vm_prev_;
+  double vm_timestamp_prev_;
 
   // Variances
   double VAR_ACC_;

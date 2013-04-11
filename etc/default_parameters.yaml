@@ -1,5 +1,5 @@
 # Filter update and publishing frequency (ms)
-update_rate: 0.015
+update_rate: 0.1
 
 # Frame names
 frame_id: map
@@ -24,7 +24,7 @@ var_gyro_drift: 1e-10
 cov_error_state: [+1.0e+7, +1.0e+7, +1.0e+3, +0.1, +1.0e+5, +1.0e-12]
 
 # Covariance for the visual odometry when NO failure: [POS_XY - ORI - VEL - ACC - GYRO - POS_Z]
-cov_visual_odom: [+1.0e-2, +1.0e+8, +1.4e-5, +1.0e+7, +1.4e-5, +1.0e+5]
+cov_visual_odom: [+1.0e-2, +1.0e+8, +1.4e-5, +1.0e+12, +1.4e-5, +1.0e+5]
 
 # Covariance for the visual odometry when failure: [POS_XY - ORI - VEL - ACC - GYRO - POS_Z]
 cov_visual_odom_failure: [+1.0e+12, +1.0e+12, +1.0e+12, +1.0e+12, +1.0e+12, +1.0e+5]

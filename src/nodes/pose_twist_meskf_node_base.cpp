@@ -7,7 +7,6 @@
 #include "pose_twist_meskf_node_base.h"
 #include "nominal_state_vector.h"
 #include "input_vector.h"
-#include "visual_measurement_vector.h"
 #include "depth_measurement_vector.h"
 #include "error_state_vector.h"
 #include "visual_measurement_error_vector.h"
@@ -119,6 +118,16 @@ void pose_twist_meskf::PoseTwistMESKFNodeBase::initializeMeskf()
 
   double timestamp = last_visual_msg_->header.stamp.toSec();
 
+  // Save for acceleration computation
+  vm_prev_.orientation_.x() = last_visual_msg_->pose.pose.orientation.x;
+  vm_prev_.orientation_.y() = last_visual_msg_->pose.pose.orientation.y;
+  vm_prev_.orientation_.z() = last_visual_msg_->pose.pose.orientation.z;
+  vm_prev_.orientation_.w() = last_visual_msg_->pose.pose.orientation.w;
+  vm_prev_.lin_vel_.x() = last_visual_msg_->twist.twist.linear.x;
+  vm_prev_.lin_vel_.y() = last_visual_msg_->twist.twist.linear.y;
+  vm_prev_.lin_vel_.z() = last_visual_msg_->twist.twist.linear.z;
+  vm_timestamp_prev_ = timestamp;
+
   filter_.setUpSystem(VAR_ACC_,VAR_GYRO_,VAR_ACC_BIAS_,VAR_GYRO_DRIFT_,G_VEC_);
 
   filter_.setUpMeasurementModels();
@@ -141,7 +150,7 @@ void pose_twist_meskf::PoseTwistMESKFNodeBase::initializeParameters(const ros::N
   local_nh.param<std::string>("use_topic_cov", use_topic_cov, "false");
   std::istringstream is(use_topic_cov);
   is >> std::boolalpha >> use_topic_cov_;
-  update_rate_ = readDoubleParameter(local_nh, "update_rate", "0.1");
+  local_nh.param("update_rate", update_rate_, 0.1);
   G_VEC_(0) = readDoubleParameter(local_nh, "gravity_x", "0.0");
   G_VEC_(1) = readDoubleParameter(local_nh, "gravity_y", "0.0");
   G_VEC_(2) = readDoubleParameter(local_nh, "gravity_z", "9.80665");
@@ -238,7 +247,7 @@ void pose_twist_meskf::PoseTwistMESKFNodeBase::initializeParameters(const ros::N
   ROS_INFO_STREAM("Reference frame: " << frame_id_ << ".");
   ROS_INFO_STREAM("Body-fixed frame: " << child_frame_id_ << ".");
   ROS_INFO_STREAM("Visual odometry frame: " << visual_odom_frame_id_ << ".");
-  ROS_INFO_STREAM("Update rate: " << update_rate_ << " Hz.");
+  ROS_INFO_STREAM("Update rate: " << update_rate_ << " ms.");
   ROS_INFO_STREAM("Use topic covariances: " << use_topic_cov_ << ".");
 }
 
@@ -300,7 +309,21 @@ visualCallback(const nav_msgs::OdometryConstPtr& msg)
     return;
   }
 
-  double timestamp = msg->header.stamp.toSec();
+  double timestamp = ros::Time::now().toSec();//msg->header.stamp.toSec();
+
+  // Compute acceleration
+  VisualMeasurementVector vm_curr;
+  vm_curr.orientation_.x() = msg->pose.pose.orientation.x;
+  vm_curr.orientation_.y() = msg->pose.pose.orientation.y;
+  vm_curr.orientation_.z() = msg->pose.pose.orientation.z;
+  vm_curr.orientation_.w() = msg->pose.pose.orientation.w;
+  vm_curr.lin_vel_.x() = msg->twist.twist.linear.x;
+  vm_curr.lin_vel_.y() = msg->twist.twist.linear.y;
+  vm_curr.lin_vel_.z() = msg->twist.twist.linear.z;
+  vm_curr.lin_acc_ = ( (vm_prev_.orientation_.inverse()*vm_curr.orientation_).toRotationMatrix() 
+    * vm_curr.lin_vel_- vm_prev_.lin_vel_ ) / (timestamp - vm_timestamp_prev_);
+
+  // Save measurement
   PoseTwistMESKF::Vector measurement(VisualMeasurementVector::DIMENSION);
   measurement(VisualMeasurementVector::POSITION_X) = msg->pose.pose.position.x;
   measurement(VisualMeasurementVector::POSITION_Y) = msg->pose.pose.position.y;
@@ -315,6 +338,19 @@ visualCallback(const nav_msgs::OdometryConstPtr& msg)
   measurement(VisualMeasurementVector::ANG_VEL_X) = msg->twist.twist.angular.x;
   measurement(VisualMeasurementVector::ANG_VEL_Y) = msg->twist.twist.angular.y;
   measurement(VisualMeasurementVector::ANG_VEL_Z) = msg->twist.twist.angular.z;
+  measurement(VisualMeasurementVector::LIN_ACC_X) = vm_curr.lin_acc_.x();
+  measurement(VisualMeasurementVector::LIN_ACC_Y) = vm_curr.lin_acc_.y();
+  measurement(VisualMeasurementVector::LIN_ACC_Z) = vm_curr.lin_acc_.z();
+
+  // Save for acceleration computation
+  vm_prev_.orientation_.x() = msg->pose.pose.orientation.x;
+  vm_prev_.orientation_.y() = msg->pose.pose.orientation.y;
+  vm_prev_.orientation_.z() = msg->pose.pose.orientation.z;
+  vm_prev_.orientation_.w() = msg->pose.pose.orientation.w;
+  vm_prev_.lin_vel_.x() = msg->twist.twist.linear.x;
+  vm_prev_.lin_vel_.y() = msg->twist.twist.linear.y;
+  vm_prev_.lin_vel_.z() = msg->twist.twist.linear.z;
+  vm_timestamp_prev_ = timestamp;
 
   PoseTwistMESKF::SymmetricMatrix covariance(VisualMeasurementErrorVector::DIMENSION);
   if (use_topic_cov_)
@@ -367,7 +403,7 @@ depthCallback(const auv_sensor_msgs::Depth& msg)
     return;
   }
 
-  double timestamp = msg.header.stamp.toSec();
+  double timestamp = ros::Time::now().toSec();//msg.header.stamp.toSec();
 
   PoseTwistMESKF::Vector measurement(DepthMeasurementVector::DIMENSION);
   measurement(DepthMeasurementVector::DEPTH_Z) = msg.depth;
@@ -406,7 +442,7 @@ void pose_twist_meskf::PoseTwistMESKFNodeBase::updateCallback()
 
   if (!success)
   {
-    ROS_ERROR_STREAM("Could not update filter.");
+    ROS_WARN_STREAM("Could not update filter.");
     return;
   }
   ROS_DEBUG_STREAM("Filter updated!");
