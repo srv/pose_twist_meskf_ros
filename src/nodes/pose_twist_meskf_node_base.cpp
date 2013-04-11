@@ -72,10 +72,10 @@ void pose_twist_meskf::PoseTwistMESKFNodeBase::initializeMeskf()
   state(NominalStateVector::POSITION_X) = last_visual_msg_->pose.pose.position.x;
   state(NominalStateVector::POSITION_Y) = last_visual_msg_->pose.pose.position.y;
   state(NominalStateVector::POSITION_Z) = last_depth_msg_->depth;
-  state(NominalStateVector::ORIENTATION_W) = last_visual_msg_->pose.pose.orientation.w;
   state(NominalStateVector::ORIENTATION_X) = last_visual_msg_->pose.pose.orientation.x;
   state(NominalStateVector::ORIENTATION_Y) = last_visual_msg_->pose.pose.orientation.y;
   state(NominalStateVector::ORIENTATION_Z) = last_visual_msg_->pose.pose.orientation.z;
+  state(NominalStateVector::ORIENTATION_W) = last_visual_msg_->pose.pose.orientation.w;
   state(NominalStateVector::LIN_VEL_X) = last_visual_msg_->twist.twist.linear.x;
   state(NominalStateVector::LIN_VEL_Y) = last_visual_msg_->twist.twist.linear.y;
   state(NominalStateVector::LIN_VEL_Z) = last_visual_msg_->twist.twist.linear.z;
@@ -95,7 +95,7 @@ void pose_twist_meskf::PoseTwistMESKFNodeBase::initializeMeskf()
   // Initialize the error state vector covariance
   PoseTwistMESKF::SymmetricMatrix covariance(ErrorStateVector::DIMENSION);
   if (use_topic_cov_)
-  {
+  {    
     covariance = 0.0;
     for (int i=0; i<3; i++)
     {
@@ -103,22 +103,12 @@ void pose_twist_meskf::PoseTwistMESKFNodeBase::initializeMeskf()
       {
         covariance(ErrorStateVector::D_POSITION_X + i,
                    ErrorStateVector::D_POSITION_X + j) = last_visual_msg_->pose.covariance[6*i + j];
-        covariance(ErrorStateVector::D_POSITION_X + i,
-                   ErrorStateVector::D_ORIENTATION_X + j) = last_visual_msg_->pose.covariance[6*i + j + 3];
-        covariance(ErrorStateVector::D_ORIENTATION_X + i,
-                   ErrorStateVector::D_POSITION_X + j) = last_visual_msg_->pose.covariance[6*i + j + 18];
-        covariance(ErrorStateVector::D_ORIENTATION_X + i,
-                   ErrorStateVector::D_ORIENTATION_X + j) = last_visual_msg_->pose.covariance[6*i + j + 21];
         covariance(ErrorStateVector::D_LIN_VEL_X + i,
                    ErrorStateVector::D_LIN_VEL_X + j) = last_visual_msg_->twist.covariance[6*i + j];
+        covariance(ErrorStateVector::D_ORIENTATION_X + i,
+                   ErrorStateVector::D_ORIENTATION_X + j) = last_visual_msg_->pose.covariance[6*i + j + 21];
         covariance(ErrorStateVector::D_GYRO_DRIFT_X + i,
-                   ErrorStateVector::D_GYRO_DRIFT_X + j) = 0.0;
-        covariance(ErrorStateVector::D_GYRO_DRIFT_X + i,
-                   ErrorStateVector::D_ACC_BIAS_X + j) = 0.0;
-        covariance(ErrorStateVector::D_ACC_BIAS_X + i,
-                   ErrorStateVector::D_GYRO_DRIFT_X + j) = 0.0;
-        covariance(ErrorStateVector::D_ACC_BIAS_X + i,
-                   ErrorStateVector::D_ACC_BIAS_X + j) = 0.0;
+                   ErrorStateVector::D_GYRO_DRIFT_X + j) = last_visual_msg_->twist.covariance[6*i + j + 21];
       }
     }
   }
@@ -144,11 +134,13 @@ void pose_twist_meskf::PoseTwistMESKFNodeBase::initializeMeskf()
  */
 void pose_twist_meskf::PoseTwistMESKFNodeBase::initializeParameters(const ros::NodeHandle& local_nh)
 {
+  std::string use_topic_cov;
   local_nh.param<std::string>("frame_id", frame_id_, "/map");
   local_nh.param<std::string>("child_frame_id", child_frame_id_, "/base_link");
-  local_nh.param<std::string>("visual_odometry_frame_id", visual_odom_frame_id_,
-                           "/odom");
-  local_nh.param("use_topic_cov", use_topic_cov_, false);
+  local_nh.param<std::string>("visual_odometry_frame_id", visual_odom_frame_id_,"/odom");
+  local_nh.param<std::string>("use_topic_cov", use_topic_cov, "false");
+  std::istringstream is(use_topic_cov);
+  is >> std::boolalpha >> use_topic_cov_;
   update_rate_ = readDoubleParameter(local_nh, "update_rate", "0.1");
   G_VEC_(0) = readDoubleParameter(local_nh, "gravity_x", "0.0");
   G_VEC_(1) = readDoubleParameter(local_nh, "gravity_y", "0.0");
@@ -313,16 +305,16 @@ visualCallback(const nav_msgs::OdometryConstPtr& msg)
   measurement(VisualMeasurementVector::POSITION_X) = msg->pose.pose.position.x;
   measurement(VisualMeasurementVector::POSITION_Y) = msg->pose.pose.position.y;
   measurement(VisualMeasurementVector::POSITION_Z) = msg->pose.pose.position.z;
-  measurement(VisualMeasurementVector::ORIENTATION_W) = msg->pose.pose.orientation.w;
   measurement(VisualMeasurementVector::ORIENTATION_X) = msg->pose.pose.orientation.x;
   measurement(VisualMeasurementVector::ORIENTATION_Y) = msg->pose.pose.orientation.y;
   measurement(VisualMeasurementVector::ORIENTATION_Z) = msg->pose.pose.orientation.z;
-  measurement(VisualMeasurementVector::ANG_VEL_X) = msg->twist.twist.angular.x;
-  measurement(VisualMeasurementVector::ANG_VEL_Y) = msg->twist.twist.angular.y;
-  measurement(VisualMeasurementVector::ANG_VEL_Z) = msg->twist.twist.angular.z;
+  measurement(VisualMeasurementVector::ORIENTATION_W) = msg->pose.pose.orientation.w;
   measurement(VisualMeasurementVector::LIN_VEL_X) = msg->twist.twist.linear.x;
   measurement(VisualMeasurementVector::LIN_VEL_Y) = msg->twist.twist.linear.y;
   measurement(VisualMeasurementVector::LIN_VEL_Z) = msg->twist.twist.linear.z;
+  measurement(VisualMeasurementVector::ANG_VEL_X) = msg->twist.twist.angular.x;
+  measurement(VisualMeasurementVector::ANG_VEL_Y) = msg->twist.twist.angular.y;
+  measurement(VisualMeasurementVector::ANG_VEL_Z) = msg->twist.twist.angular.z;
 
   PoseTwistMESKF::SymmetricMatrix covariance(VisualMeasurementErrorVector::DIMENSION);
   if (use_topic_cov_)
@@ -331,12 +323,12 @@ visualCallback(const nav_msgs::OdometryConstPtr& msg)
     {
       for (int j=0; j<3; j++)
       {
+        covariance(VisualMeasurementErrorVector::D_POSITION_X + i,
+                   VisualMeasurementErrorVector::D_POSITION_X + j) = msg->pose.covariance[6*i + j];
         covariance(VisualMeasurementErrorVector::D_LIN_VEL_X + i,
                    VisualMeasurementErrorVector::D_LIN_VEL_X + j) = msg->twist.covariance[6*i + j];
-        covariance(VisualMeasurementErrorVector::D_LIN_VEL_X + i,
-                   VisualMeasurementErrorVector::D_GYRO_DRIFT_X + j) = msg->twist.covariance[6*i + j + 3];
-        covariance(VisualMeasurementErrorVector::D_GYRO_DRIFT_X + i,
-                   VisualMeasurementErrorVector::D_LIN_VEL_X + j) = msg->twist.covariance[6*i + j + 18];
+        covariance(VisualMeasurementErrorVector::D_ORIENTATION_X + i,
+                   VisualMeasurementErrorVector::D_ORIENTATION_X + j) = msg->pose.covariance[6*i + j + 21];
         covariance(VisualMeasurementErrorVector::D_GYRO_DRIFT_X + i,
                    VisualMeasurementErrorVector::D_GYRO_DRIFT_X + j) = msg->twist.covariance[6*i + j + 21];
       }

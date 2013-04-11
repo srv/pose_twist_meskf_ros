@@ -303,6 +303,7 @@ bool pose_twist_meskf::PoseTwistMESKF::updateAll()
            (measurement_queues_[q].top().t_ < measurement_queues_[qnext].top().t_) )
         qnext = q;
     }
+
     // Process next measurement if any or all remaining inputs.
     if (qnext < 0)
     {
@@ -359,7 +360,7 @@ bool pose_twist_meskf::PoseTwistMESKF::updateFilterSys(const Input& in)
 {
   TimeStamp input_t = in.t_; // convert nanoseconds of the imu timestamp to seconds
   Vector input_val = in.u_;
-  int input_dim = input_val.rows();  
+  int input_dim = input_val.rows();
   Vector u(input_dim+1);
   for (int i=1; i<=input_dim; i++)
     u(i)=input_val(i);

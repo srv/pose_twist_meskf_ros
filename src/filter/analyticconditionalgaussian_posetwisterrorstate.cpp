@@ -319,10 +319,6 @@ void performFullUpdate(const Eigen::Vector3d& g_vect,
   Eigen::Matrix3d R = nominal_state.orientation_.toRotationMatrix();
 
   nominal_state.lin_acc_ = R.transpose()*g_vect - input.lin_acc_ + nominal_state.acc_bias_; // fugu-c
-
-  //nominal_state.lin_acc_ = - input.lin_acc_ + nominal_state.acc_bias_; // fugu-f
-
-
   nominal_state.ang_vel_ = input.ang_vel_ - nominal_state.gyro_drift_;
 
   const double dt = input.time_incr_;
