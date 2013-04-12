@@ -70,7 +70,7 @@ void pose_twist_meskf::PoseTwistMESKFNodeBase::initializeMeskf()
   PoseTwistMESKF::Vector state(NominalStateVector::DIMENSION);
   state(NominalStateVector::POSITION_X) = last_visual_msg_->pose.pose.position.x;
   state(NominalStateVector::POSITION_Y) = last_visual_msg_->pose.pose.position.y;
-  state(NominalStateVector::POSITION_Z) = last_depth_msg_->depth;
+  state(NominalStateVector::POSITION_Z) = last_visual_msg_->pose.pose.position.z;
   state(NominalStateVector::ORIENTATION_X) = last_visual_msg_->pose.pose.orientation.x;
   state(NominalStateVector::ORIENTATION_Y) = last_visual_msg_->pose.pose.orientation.y;
   state(NominalStateVector::ORIENTATION_Z) = last_visual_msg_->pose.pose.orientation.z;
@@ -397,11 +397,7 @@ void
 pose_twist_meskf::PoseTwistMESKFNodeBase::
 depthCallback(const auv_sensor_msgs::Depth& msg)
 {
-  if (!filter_initialized_)
-  {
-    last_depth_msg_.reset(new auv_sensor_msgs::Depth(msg));
-    return;
-  }
+  if (!filter_initialized_) return;
 
   double timestamp = ros::Time::now().toSec();//msg.header.stamp.toSec();
 
@@ -428,7 +424,7 @@ void pose_twist_meskf::PoseTwistMESKFNodeBase::updateCallback()
   // Check if filter is initialized
   if (!filter_initialized_)
   {
-    if (last_visual_msg_ && last_depth_msg_)
+    if (last_visual_msg_)
     {
       // Filter needs one visual odometry message 
       // and one depth message to be initialized

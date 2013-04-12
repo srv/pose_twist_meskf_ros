@@ -1,4 +1,5 @@
 # Specific files
+data/
 
 # Build objects
 lib/

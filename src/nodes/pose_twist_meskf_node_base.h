@@ -104,7 +104,6 @@ private:
   bool filter_initialized_; //!> True when filter has been initialized
 
   boost::shared_ptr<nav_msgs::Odometry> last_visual_msg_;
-  boost::shared_ptr<auv_sensor_msgs::Depth> last_depth_msg_;
 
   // Update rate.
   double update_rate_; //!> Filter update and publishing frequency (in seconds).
