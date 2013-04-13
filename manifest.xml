@@ -31,9 +31,5 @@
   <depend package="nodelet"/>
 
   <rosdep name="eigen"/>
-  
-  <export>
-    <nodelet plugin="${prefix}/nodelet/nodelet_plugins.xml"/>
-  </export>
 
 </package>
