@@ -70,7 +70,10 @@ void pose_twist_meskf::PoseTwistMESKFNodeBase::initializeMeskf()
   PoseTwistMESKF::Vector state(NominalStateVector::DIMENSION);
   state(NominalStateVector::POSITION_X) = last_visual_msg_->pose.pose.position.x;
   state(NominalStateVector::POSITION_Y) = last_visual_msg_->pose.pose.position.y;
-  state(NominalStateVector::POSITION_Z) = last_visual_msg_->pose.pose.position.z;
+  if (use_depth_)
+    state(NominalStateVector::POSITION_Z) = last_depth_msg_->depth;
+  else
+    state(NominalStateVector::POSITION_Z) = last_visual_msg_->pose.pose.position.z;
   state(NominalStateVector::ORIENTATION_X) = last_visual_msg_->pose.pose.orientation.x;
   state(NominalStateVector::ORIENTATION_Y) = last_visual_msg_->pose.pose.orientation.y;
   state(NominalStateVector::ORIENTATION_Z) = last_visual_msg_->pose.pose.orientation.z;
@@ -143,13 +146,16 @@ void pose_twist_meskf::PoseTwistMESKFNodeBase::initializeMeskf()
  */
 void pose_twist_meskf::PoseTwistMESKFNodeBase::initializeParameters(const ros::NodeHandle& local_nh)
 {
-  std::string use_topic_cov;
+  std::string use_topic_cov, use_depth;
   local_nh.param<std::string>("frame_id", frame_id_, "/map");
   local_nh.param<std::string>("child_frame_id", child_frame_id_, "/base_link");
   local_nh.param<std::string>("visual_odometry_frame_id", visual_odom_frame_id_,"/odom");
   local_nh.param<std::string>("use_topic_cov", use_topic_cov, "false");
-  std::istringstream is(use_topic_cov);
-  is >> std::boolalpha >> use_topic_cov_;
+  local_nh.param<std::string>("use_depth", use_depth, "true");
+  std::istringstream is_1(use_topic_cov);
+  is_1 >> std::boolalpha >> use_topic_cov_;
+  std::istringstream is_2(use_depth);
+  is_2 >> std::boolalpha >> use_depth_;
   local_nh.param("update_rate", update_rate_, 0.1);
   G_VEC_(0) = readDoubleParameter(local_nh, "gravity_x", "0.0");
   G_VEC_(1) = readDoubleParameter(local_nh, "gravity_y", "0.0");
@@ -159,89 +165,85 @@ void pose_twist_meskf::PoseTwistMESKFNodeBase::initializeParameters(const ros::N
   VAR_GYRO_ = readDoubleParameter(local_nh, "var_gyro", "1e-6");
   VAR_GYRO_DRIFT_ = readDoubleParameter(local_nh, "var_gyro_drift", "1e-10");
 
-  // Read user-defined covariances
-  if (!use_topic_cov_)
+  // Error state covariance
+  XmlRpc::XmlRpcValue cov_params;
+  local_nh.getParam("cov_error_state", cov_params);
+  ROS_ASSERT(cov_params.getType() == XmlRpc::XmlRpcValue::TypeArray);
+  ROS_ASSERT(cov_params.size() == 6);
+  for (int i=0; i<cov_params.size(); i++)
+    ROS_ASSERT(cov_params[i].getType() == XmlRpc::XmlRpcValue::TypeDouble);
+  PoseTwistMESKF::SymmetricMatrix cov_error_state(ErrorStateVector::DIMENSION);
+  cov_error_state = 0.0;
+  for (int i=0; i<3; i++)
   {
-    // Error state covariance
-    XmlRpc::XmlRpcValue cov_params;
-    local_nh.getParam("cov_error_state", cov_params);
-    ROS_ASSERT(cov_params.getType() == XmlRpc::XmlRpcValue::TypeArray);
-    ROS_ASSERT(cov_params.size() == 6);
-    for (int i=0; i<cov_params.size(); i++)
-      ROS_ASSERT(cov_params[i].getType() == XmlRpc::XmlRpcValue::TypeDouble);
-    PoseTwistMESKF::SymmetricMatrix cov_error_state(ErrorStateVector::DIMENSION);
-    cov_error_state = 0.0;
-    for (int i=0; i<3; i++)
-    {
-      cov_error_state(ErrorStateVector::D_POSITION_X + i,
-         ErrorStateVector::D_POSITION_X + i) = cov_params[0];
-      cov_error_state(ErrorStateVector::D_LIN_VEL_X + i,
-         ErrorStateVector::D_LIN_VEL_X + i) = cov_params[1];
-      cov_error_state(ErrorStateVector::D_ACC_BIAS_X + i,
-         ErrorStateVector::D_ACC_BIAS_X + i) = cov_params[2];
-      cov_error_state(ErrorStateVector::D_ORIENTATION_X + i,
-         ErrorStateVector::D_ORIENTATION_X + i) = cov_params[3];
-      cov_error_state(ErrorStateVector::D_GYRO_DRIFT_X + i,
-         ErrorStateVector::D_GYRO_DRIFT_X + i) = cov_params[4];
-    }
-    cov_error_state(3,3) = cov_params[5];
-    COV_ERROR_STATE_ = cov_error_state;
-
-    // Visual odometry covariance
-    local_nh.getParam("cov_visual_odom", cov_params);
-    ROS_ASSERT(cov_params.getType() == XmlRpc::XmlRpcValue::TypeArray);
-    ROS_ASSERT(cov_params.size() == 6);
-    for (int i=0; i<cov_params.size(); i++)
-      ROS_ASSERT(cov_params[i].getType() == XmlRpc::XmlRpcValue::TypeDouble);
-    PoseTwistMESKF::SymmetricMatrix cov_visual_odom(VisualMeasurementErrorVector::DIMENSION);
-    cov_visual_odom = 0.0;
-    for (int i=0; i<3; i++)
-    {
-      cov_visual_odom(VisualMeasurementErrorVector::D_POSITION_X + i,
-        VisualMeasurementErrorVector::D_POSITION_X + i) = cov_params[0];
-      cov_visual_odom(VisualMeasurementErrorVector::D_ORIENTATION_X + i,
-        VisualMeasurementErrorVector::D_ORIENTATION_X + i) = cov_params[1];
-      cov_visual_odom(VisualMeasurementErrorVector::D_LIN_VEL_X + i,
-        VisualMeasurementErrorVector::D_LIN_VEL_X + i) = cov_params[2];
-      cov_visual_odom(VisualMeasurementErrorVector::D_ACC_BIAS_X + i,
-        VisualMeasurementErrorVector::D_ACC_BIAS_X + i) = cov_params[3];
-      cov_visual_odom(VisualMeasurementErrorVector::D_GYRO_DRIFT_X + i,
-        VisualMeasurementErrorVector::D_GYRO_DRIFT_X + i) = cov_params[4];
-    }
-    cov_visual_odom(3,3) = cov_params[5];
-    COV_VISUAL_ODOM_ = cov_visual_odom;
-
-    // Visual odometry covariance when failure
-    local_nh.getParam("cov_visual_odom_failure", cov_params);
-    ROS_ASSERT(cov_params.getType() == XmlRpc::XmlRpcValue::TypeArray);
-    ROS_ASSERT(cov_params.size() == 6);
-    for (int i=0; i<cov_params.size(); i++)
-      ROS_ASSERT(cov_params[i].getType() == XmlRpc::XmlRpcValue::TypeDouble);
-    PoseTwistMESKF::SymmetricMatrix cov_visual_odom_failure(VisualMeasurementErrorVector::DIMENSION);
-    cov_visual_odom_failure = 0.0;
-    for (int i=0; i<3; i++)
-    {
-      cov_visual_odom_failure(VisualMeasurementErrorVector::D_POSITION_X + i,
-        VisualMeasurementErrorVector::D_POSITION_X + i) = cov_params[0];
-      cov_visual_odom_failure(VisualMeasurementErrorVector::D_ORIENTATION_X + i,
-        VisualMeasurementErrorVector::D_ORIENTATION_X + i) = cov_params[1];
-      cov_visual_odom_failure(VisualMeasurementErrorVector::D_LIN_VEL_X + i,
-        VisualMeasurementErrorVector::D_LIN_VEL_X + i) = cov_params[2];
-      cov_visual_odom_failure(VisualMeasurementErrorVector::D_ACC_BIAS_X + i,
-        VisualMeasurementErrorVector::D_ACC_BIAS_X + i) = cov_params[3];
-      cov_visual_odom_failure(VisualMeasurementErrorVector::D_GYRO_DRIFT_X + i,
-        VisualMeasurementErrorVector::D_GYRO_DRIFT_X + i) = cov_params[4];
-    }
-    cov_visual_odom_failure(3,3) = cov_params[5];
-    COV_VISUAL_ODOM_FAILURE_ = cov_visual_odom_failure;
-
-    // Depth covariance
-    double cov_depth_val = readDoubleParameter(local_nh, "cov_depth", "1.0e-12");
-    PoseTwistMESKF::SymmetricMatrix cov_depth(DepthMeasurementErrorVector::DIMENSION);
-    cov_depth(DepthMeasurementErrorVector::D_DEPTH_Z, 
-      DepthMeasurementErrorVector::D_DEPTH_Z) = cov_depth_val;
-    COV_DEPTH_ = cov_depth;
+    cov_error_state(ErrorStateVector::D_POSITION_X + i,
+       ErrorStateVector::D_POSITION_X + i) = cov_params[0];
+    cov_error_state(ErrorStateVector::D_LIN_VEL_X + i,
+       ErrorStateVector::D_LIN_VEL_X + i) = cov_params[1];
+    cov_error_state(ErrorStateVector::D_ACC_BIAS_X + i,
+       ErrorStateVector::D_ACC_BIAS_X + i) = cov_params[2];
+    cov_error_state(ErrorStateVector::D_ORIENTATION_X + i,
+       ErrorStateVector::D_ORIENTATION_X + i) = cov_params[3];
+    cov_error_state(ErrorStateVector::D_GYRO_DRIFT_X + i,
+       ErrorStateVector::D_GYRO_DRIFT_X + i) = cov_params[4];
   }
+  cov_error_state(3,3) = cov_params[5];
+  COV_ERROR_STATE_ = cov_error_state;
+
+  // Visual odometry covariance
+  local_nh.getParam("cov_visual_odom", cov_params);
+  ROS_ASSERT(cov_params.getType() == XmlRpc::XmlRpcValue::TypeArray);
+  ROS_ASSERT(cov_params.size() == 6);
+  for (int i=0; i<cov_params.size(); i++)
+    ROS_ASSERT(cov_params[i].getType() == XmlRpc::XmlRpcValue::TypeDouble);
+  PoseTwistMESKF::SymmetricMatrix cov_visual_odom(VisualMeasurementErrorVector::DIMENSION);
+  cov_visual_odom = 0.0;
+  for (int i=0; i<3; i++)
+  {
+    cov_visual_odom(VisualMeasurementErrorVector::D_POSITION_X + i,
+      VisualMeasurementErrorVector::D_POSITION_X + i) = cov_params[0];
+    cov_visual_odom(VisualMeasurementErrorVector::D_ORIENTATION_X + i,
+      VisualMeasurementErrorVector::D_ORIENTATION_X + i) = cov_params[1];
+    cov_visual_odom(VisualMeasurementErrorVector::D_LIN_VEL_X + i,
+      VisualMeasurementErrorVector::D_LIN_VEL_X + i) = cov_params[2];
+    cov_visual_odom(VisualMeasurementErrorVector::D_ACC_BIAS_X + i,
+      VisualMeasurementErrorVector::D_ACC_BIAS_X + i) = cov_params[3];
+    cov_visual_odom(VisualMeasurementErrorVector::D_GYRO_DRIFT_X + i,
+      VisualMeasurementErrorVector::D_GYRO_DRIFT_X + i) = cov_params[4];
+  }
+  cov_visual_odom(3,3) = cov_params[5];
+  COV_VISUAL_ODOM_ = cov_visual_odom;
+
+  // Visual odometry covariance when failure
+  local_nh.getParam("cov_visual_odom_failure", cov_params);
+  ROS_ASSERT(cov_params.getType() == XmlRpc::XmlRpcValue::TypeArray);
+  ROS_ASSERT(cov_params.size() == 6);
+  for (int i=0; i<cov_params.size(); i++)
+    ROS_ASSERT(cov_params[i].getType() == XmlRpc::XmlRpcValue::TypeDouble);
+  PoseTwistMESKF::SymmetricMatrix cov_visual_odom_failure(VisualMeasurementErrorVector::DIMENSION);
+  cov_visual_odom_failure = 0.0;
+  for (int i=0; i<3; i++)
+  {
+    cov_visual_odom_failure(VisualMeasurementErrorVector::D_POSITION_X + i,
+      VisualMeasurementErrorVector::D_POSITION_X + i) = cov_params[0];
+    cov_visual_odom_failure(VisualMeasurementErrorVector::D_ORIENTATION_X + i,
+      VisualMeasurementErrorVector::D_ORIENTATION_X + i) = cov_params[1];
+    cov_visual_odom_failure(VisualMeasurementErrorVector::D_LIN_VEL_X + i,
+      VisualMeasurementErrorVector::D_LIN_VEL_X + i) = cov_params[2];
+    cov_visual_odom_failure(VisualMeasurementErrorVector::D_ACC_BIAS_X + i,
+      VisualMeasurementErrorVector::D_ACC_BIAS_X + i) = cov_params[3];
+    cov_visual_odom_failure(VisualMeasurementErrorVector::D_GYRO_DRIFT_X + i,
+      VisualMeasurementErrorVector::D_GYRO_DRIFT_X + i) = cov_params[4];
+  }
+  cov_visual_odom_failure(3,3) = cov_params[5];
+  COV_VISUAL_ODOM_FAILURE_ = cov_visual_odom_failure;
+
+  // Depth covariance
+  double cov_depth_val = readDoubleParameter(local_nh, "cov_depth", "1.0e-12");
+  PoseTwistMESKF::SymmetricMatrix cov_depth(DepthMeasurementErrorVector::DIMENSION);
+  cov_depth(DepthMeasurementErrorVector::D_DEPTH_Z, 
+    DepthMeasurementErrorVector::D_DEPTH_Z) = cov_depth_val;
+  COV_DEPTH_ = cov_depth;
 
   // Info
   ROS_INFO_STREAM("Reference frame: " << frame_id_ << ".");
@@ -249,6 +251,7 @@ void pose_twist_meskf::PoseTwistMESKFNodeBase::initializeParameters(const ros::N
   ROS_INFO_STREAM("Visual odometry frame: " << visual_odom_frame_id_ << ".");
   ROS_INFO_STREAM("Update rate: " << update_rate_ << " ms.");
   ROS_INFO_STREAM("Use topic covariances: " << use_topic_cov_ << ".");
+  ROS_INFO_STREAM("Use depth messages: " << use_depth_ << ".");
 }
 
 /**
@@ -377,7 +380,7 @@ visualCallback(const nav_msgs::OdometryConstPtr& msg)
       && msg->pose.pose.position.z == 0.0)
     {
       covariance = COV_VISUAL_ODOM_FAILURE_;
-      ROS_DEBUG_STREAM("Visual odometry failure. Using covariance: COV_VISUAL_ODOM_FAILURE");
+      ROS_WARN_STREAM("Visual odometry failure. Using covariance: COV_VISUAL_ODOM_FAILURE");
     }
     else
     {
@@ -397,9 +400,13 @@ void
 pose_twist_meskf::PoseTwistMESKFNodeBase::
 depthCallback(const auv_sensor_msgs::Depth& msg)
 {
-  if (!filter_initialized_) return;
+  if (!filter_initialized_)
+  {
+    last_depth_msg_.reset(new auv_sensor_msgs::Depth(msg));
+    return;
+  }
 
-  double timestamp = ros::Time::now().toSec();//msg.header.stamp.toSec();
+  double timestamp = ros::Time::now().toSec();
 
   PoseTwistMESKF::Vector measurement(DepthMeasurementVector::DIMENSION);
   measurement(DepthMeasurementVector::DEPTH_Z) = msg.depth;
@@ -424,12 +431,20 @@ void pose_twist_meskf::PoseTwistMESKFNodeBase::updateCallback()
   // Check if filter is initialized
   if (!filter_initialized_)
   {
-    if (last_visual_msg_)
+    if (last_visual_msg_ && use_depth_ && last_depth_msg_) 
     {
       // Filter needs one visual odometry message 
       // and one depth message to be initialized
       initializeMeskf();
     }
+    else
+    {
+      if (last_visual_msg_ && !use_depth_)
+      {
+        initializeMeskf();
+      }
+    }
+      
     return;
   }
 
@@ -490,6 +505,15 @@ void pose_twist_meskf::PoseTwistMESKFNodeBase::updateCallback()
   }
   publ_odom_.publish(odometry_msg);
 
+  tf::Vector3 t   ( state(NominalStateVector::POSITION_X),
+                    state(NominalStateVector::POSITION_Y),
+                    state(NominalStateVector::POSITION_Z));
+  tf::Quaternion q( state(NominalStateVector::ORIENTATION_X),
+                    state(NominalStateVector::ORIENTATION_Y),
+                    state(NominalStateVector::ORIENTATION_Z),
+                    state(NominalStateVector::ORIENTATION_W));
+  tf::Transform transform(q, t);
+
   geometry_msgs::Vector3Stamped accel_bias_msg;
   accel_bias_msg.header.stamp.fromSec(timestamp);
   accel_bias_msg.header.frame_id = frame_id_;
@@ -505,5 +529,11 @@ void pose_twist_meskf::PoseTwistMESKFNodeBase::updateCallback()
   gyro_drift_msg.vector.y = state(NominalStateVector::GYRO_DRIFT_Y);
   gyro_drift_msg.vector.z = state(NominalStateVector::GYRO_DRIFT_Z);
   publ_gyro_drift_.publish(gyro_drift_msg);
+
+  // Publish transform
+  ros::Time tf_timestamp = ros::Time(timestamp);
+  tf_broadcaster_.sendTransform(
+      tf::StampedTransform(transform, tf_timestamp,
+      frame_id_, child_frame_id_));
 
 }

@@ -13,6 +13,7 @@
 #include <nav_msgs/Odometry.h>
 #include <auv_sensor_msgs/Depth.h>
 #include <geometry_msgs/Vector3Stamped.h>
+#include <tf/transform_broadcaster.h>
 #include "pose_twist_meskf.h"
 #include "visual_measurement_vector.h"
 
@@ -93,7 +94,7 @@ private:
   ros::ServiceServer serv_stop_;
 
   // Transforms. TODO
-  //tf::TransformBroadcaster tf_broadcaster_;
+  tf::TransformBroadcaster tf_broadcaster_;
 
   // Frame names.
   std::string frame_id_;             //!> Reference frame.
@@ -103,13 +104,18 @@ private:
   // Filter initialized
   bool filter_initialized_; //!> True when filter has been initialized
 
+  // Messages to initialize the filter
   boost::shared_ptr<nav_msgs::Odometry> last_visual_msg_;
+  boost::shared_ptr<auv_sensor_msgs::Depth> last_depth_msg_;
 
   // Update rate.
   double update_rate_; //!> Filter update and publishing frequency (in seconds).
 
   // Use user-defined covariances or topic covariances
   bool use_topic_cov_;
+
+  // Use depth messages to compute z.
+  bool use_depth_;
   
   // Standard gravity vector in reference frame.
   Eigen::Vector3d G_VEC_;
