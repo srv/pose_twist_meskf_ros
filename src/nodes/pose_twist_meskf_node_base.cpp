@@ -531,9 +531,8 @@ void pose_twist_meskf::PoseTwistMESKFNodeBase::updateCallback()
   publ_gyro_drift_.publish(gyro_drift_msg);
 
   // Publish transform
-  ros::Time tf_timestamp = ros::Time(timestamp);
   tf_broadcaster_.sendTransform(
-      tf::StampedTransform(transform, tf_timestamp,
+      tf::StampedTransform(transform, odometry_msg.header.stamp,
       frame_id_, child_frame_id_));
 
 }
