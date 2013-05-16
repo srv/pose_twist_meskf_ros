@@ -124,6 +124,10 @@ private:
   VisualMeasurementVector vm_prev_;
   double vm_timestamp_prev_;
 
+  // Visual measurement timestamp
+  ros::Time visual_msg_timestamp_;
+  bool tf_with_odom_stamp_;
+
   // Variances
   double VAR_ACC_;
   double VAR_ACC_BIAS_;

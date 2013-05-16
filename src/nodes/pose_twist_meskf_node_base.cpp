@@ -45,7 +45,7 @@ PoseTwistMESKFNodeBase(): filter_initialized_(false)
 
   // Initialize the update timer
   if (update_timer_.isValid() && update_timer_.hasPending())
-    ROS_INFO_STREAM("Filter reset!");
+    ROS_INFO("Filter reset!");
   else
   {
     if (update_timer_.isValid())
@@ -56,7 +56,7 @@ PoseTwistMESKFNodeBase(): filter_initialized_(false)
     {
       update_timer_ = nh.createTimer(ros::Duration(update_rate_),
                                         boost::bind(&PoseTwistMESKFNodeBase::updateCallback, this));
-      ROS_INFO_STREAM("Filter started!");
+      ROS_INFO("Filter started!");
     }
   }
 }
@@ -71,7 +71,7 @@ void pose_twist_meskf::PoseTwistMESKFNodeBase::initializeMeskf()
   state(NominalStateVector::POSITION_X) = last_visual_msg_->pose.pose.position.x;
   state(NominalStateVector::POSITION_Y) = last_visual_msg_->pose.pose.position.y;
   if (use_depth_)
-    state(NominalStateVector::POSITION_Z) = last_depth_msg_->depth;
+    state(NominalStateVector::POSITION_Z) = -last_depth_msg_->depth;
   else
     state(NominalStateVector::POSITION_Z) = last_visual_msg_->pose.pose.position.z;
   state(NominalStateVector::ORIENTATION_X) = last_visual_msg_->pose.pose.orientation.x;
@@ -119,9 +119,8 @@ void pose_twist_meskf::PoseTwistMESKFNodeBase::initializeMeskf()
     covariance = COV_ERROR_STATE_;
   }
 
-  double timestamp = last_visual_msg_->header.stamp.toSec();
-
   // Save for acceleration computation
+  double timestamp = last_visual_msg_->header.stamp.toSec();
   vm_prev_.orientation_.x() = last_visual_msg_->pose.pose.orientation.x;
   vm_prev_.orientation_.y() = last_visual_msg_->pose.pose.orientation.y;
   vm_prev_.orientation_.z() = last_visual_msg_->pose.pose.orientation.z;
@@ -135,7 +134,7 @@ void pose_twist_meskf::PoseTwistMESKFNodeBase::initializeMeskf()
 
   filter_.setUpMeasurementModels();
 
-  filter_.initialize(state, covariance, timestamp);
+  filter_.initialize(state, covariance, ros::Time::now().toSec());
 
   filter_initialized_ = true;
 }
@@ -146,16 +145,19 @@ void pose_twist_meskf::PoseTwistMESKFNodeBase::initializeMeskf()
  */
 void pose_twist_meskf::PoseTwistMESKFNodeBase::initializeParameters(const ros::NodeHandle& local_nh)
 {
-  std::string use_topic_cov, use_depth;
+  std::string use_topic_cov, use_depth, tf_with_odom_stamp;
   local_nh.param<std::string>("frame_id", frame_id_, "/map");
   local_nh.param<std::string>("child_frame_id", child_frame_id_, "/base_link");
   local_nh.param<std::string>("visual_odometry_frame_id", visual_odom_frame_id_,"/odom");
   local_nh.param<std::string>("use_topic_cov", use_topic_cov, "false");
   local_nh.param<std::string>("use_depth", use_depth, "true");
+  local_nh.param<std::string>("tf_with_odom_stamp", tf_with_odom_stamp, "false");
   std::istringstream is_1(use_topic_cov);
   is_1 >> std::boolalpha >> use_topic_cov_;
   std::istringstream is_2(use_depth);
   is_2 >> std::boolalpha >> use_depth_;
+  std::istringstream is_3(tf_with_odom_stamp);
+  is_3 >> std::boolalpha >> tf_with_odom_stamp_;
   local_nh.param("update_rate", update_rate_, 0.1);
   G_VEC_(0) = readDoubleParameter(local_nh, "gravity_x", "0.0");
   G_VEC_(1) = readDoubleParameter(local_nh, "gravity_y", "0.0");
@@ -293,8 +295,8 @@ IMUCallback(const sensor_msgs::ImuConstPtr& msg)
   input(InputVector::ANG_VEL_Y) = msg->angular_velocity.y;
   input(InputVector::ANG_VEL_Z) = msg->angular_velocity.z;
 
-  filter_.addInput(msg->header.stamp.toSec(), input);
-  ROS_DEBUG_STREAM("IMU measurement encued");
+  filter_.addInput(ros::Time::now().toSec(), input);
+  ROS_DEBUG("IMU measurement encued");
 }
 
 
@@ -312,9 +314,11 @@ visualCallback(const nav_msgs::OdometryConstPtr& msg)
     return;
   }
 
-  double timestamp = ros::Time::now().toSec();//msg->header.stamp.toSec();
+  // Save odometry timestamp to sync odometry with the output of the filter
+  visual_msg_timestamp_ = msg->header.stamp;
 
   // Compute acceleration
+  double timestamp = msg->header.stamp.toSec();
   VisualMeasurementVector vm_curr;
   vm_curr.orientation_.x() = msg->pose.pose.orientation.x;
   vm_curr.orientation_.y() = msg->pose.pose.orientation.y;
@@ -380,7 +384,7 @@ visualCallback(const nav_msgs::OdometryConstPtr& msg)
       && msg->pose.pose.position.z == 0.0)
     {
       covariance = COV_VISUAL_ODOM_FAILURE_;
-      ROS_WARN_STREAM("Visual odometry failure. Using covariance: COV_VISUAL_ODOM_FAILURE");
+      ROS_WARN("Visual odometry failure. Using covariance: COV_VISUAL_ODOM_FAILURE");
     }
     else
     {
@@ -388,8 +392,8 @@ visualCallback(const nav_msgs::OdometryConstPtr& msg)
     }
   }
   
-  filter_.addMeasurement(filter_.VISUAL, measurement, covariance, timestamp);
-  ROS_DEBUG_STREAM("VISUAL_ODOM measurement encued");
+  filter_.addMeasurement(filter_.VISUAL, measurement, covariance, ros::Time::now().toSec());
+  ROS_DEBUG("VISUAL_ODOM measurement encued");
 }
 
 /**
@@ -406,17 +410,14 @@ depthCallback(const auv_sensor_msgs::Depth& msg)
     return;
   }
 
-  double timestamp = ros::Time::now().toSec();
-
   PoseTwistMESKF::Vector measurement(DepthMeasurementVector::DIMENSION);
-  measurement(DepthMeasurementVector::DEPTH_Z) = msg.depth;
+  measurement(DepthMeasurementVector::DEPTH_Z) = -msg.depth;
 
   PoseTwistMESKF::SymmetricMatrix covariance(DepthMeasurementErrorVector::DIMENSION);
 
   // AUV_sensor_msgs::Depth has no covariance field
-
-  filter_.addMeasurement(filter_.DEPTH, measurement, COV_DEPTH_, timestamp);
-  ROS_DEBUG_STREAM("DEPTH measurement encued");
+  filter_.addMeasurement(filter_.DEPTH, measurement, COV_DEPTH_, ros::Time::now().toSec());
+  ROS_DEBUG("DEPTH measurement encued");
 }
 
 
@@ -453,19 +454,19 @@ void pose_twist_meskf::PoseTwistMESKFNodeBase::updateCallback()
 
   if (!success)
   {
-    ROS_WARN_STREAM("Could not update filter.");
+    ROS_WARN("Could not update filter.");
     return;
   }
-  ROS_DEBUG_STREAM("Filter updated!");
+  ROS_INFO("Filter updated!");
 
   // Get results
-  const double timestamp = filter_.getFilterTime();
   const PoseTwistMESKF::Vector state = filter_.getEstimate();
   const PoseTwistMESKF::SymmetricMatrix covariance = filter_.getCovariance();
+  ros::Time timestamp = ros::Time::now();
 
   // Publish messages
   nav_msgs::Odometry odometry_msg;
-  odometry_msg.header.stamp.fromSec(timestamp);
+  odometry_msg.header.stamp = timestamp;
   odometry_msg.header.frame_id = frame_id_;
   odometry_msg.child_frame_id = child_frame_id_;
   odometry_msg.pose.pose.position.x = state(NominalStateVector::POSITION_X);
@@ -515,7 +516,7 @@ void pose_twist_meskf::PoseTwistMESKFNodeBase::updateCallback()
   tf::Transform transform(q, t);
 
   geometry_msgs::Vector3Stamped accel_bias_msg;
-  accel_bias_msg.header.stamp.fromSec(timestamp);
+  accel_bias_msg.header.stamp = timestamp;
   accel_bias_msg.header.frame_id = frame_id_;
   accel_bias_msg.vector.x = state(NominalStateVector::ACC_BIAS_X);
   accel_bias_msg.vector.y = state(NominalStateVector::ACC_BIAS_Y);
@@ -523,7 +524,7 @@ void pose_twist_meskf::PoseTwistMESKFNodeBase::updateCallback()
   publ_accel_bias_.publish(accel_bias_msg);
 
   geometry_msgs::Vector3Stamped gyro_drift_msg;
-  gyro_drift_msg.header.stamp.fromSec(timestamp);
+  gyro_drift_msg.header.stamp = timestamp;
   gyro_drift_msg.header.frame_id = frame_id_;
   gyro_drift_msg.vector.x = state(NominalStateVector::GYRO_DRIFT_X);
   gyro_drift_msg.vector.y = state(NominalStateVector::GYRO_DRIFT_Y);
@@ -531,8 +532,9 @@ void pose_twist_meskf::PoseTwistMESKFNodeBase::updateCallback()
   publ_gyro_drift_.publish(gyro_drift_msg);
 
   // Publish transform
+  if (tf_with_odom_stamp_ == true)
+    timestamp = visual_msg_timestamp_;
   tf_broadcaster_.sendTransform(
-      tf::StampedTransform(transform, odometry_msg.header.stamp,
+      tf::StampedTransform(transform, timestamp,
       frame_id_, child_frame_id_));
-
 }

@@ -391,7 +391,7 @@ bool pose_twist_meskf::PoseTwistMESKF::updateFilterMeas(const MeasurementIndex& 
                                                         const Measurement& meas)
 {
   bool success = false;
-  if (meas.t_ == filter_time_)
+  if (abs(meas.t_ - filter_time_) < 10e-6)
   {
     Vector x = system_pdf_->NominalStateGet();
     measurement_pdfs_[i]->AdditiveNoiseSigmaSet(meas.Q_);

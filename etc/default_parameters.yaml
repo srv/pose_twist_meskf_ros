@@ -1,16 +1,19 @@
 # Filter update and publishing frequency (ms)
-update_rate: 0.1
+update_rate: 0.12
 
 # Frame names
 frame_id: /map
-child_frame_id: /camera_comp_wide
+child_frame_id: /stereo_down
 visual_odometry_frame_id: /odom
 
 # True to use topic covariances. False to use user-defined covariances.
 use_topic_cov: false;
 
 # True to use depth topic. If false, depth will be computed from visual odometry.
-use_depth: false;
+use_depth: true;
+
+# True to use the timestamp of visual odometry for tf publishing
+tf_with_odom_stamp: false;
 
 # Gravity 
 gravity_x: 0.0
@@ -24,13 +27,13 @@ var_gyro: 1e-6
 var_gyro_drift: 1e-10
 
 # Covariance for the Error State Vector: [POS_XY - VEL - ACC - ORI - GYRO - POS_Z]
-cov_error_state: [+1.0e+7, +1.0e+7, +1.0e+3, +0.1, +1.0e+5, +1.0e-12]
+cov_error_state: [+1.0e+5, +1.0e+7, +1.0e-2, +0.1, +1.0e+5, +1.0e-12]
 
 # Covariance for the visual odometry when NO failure: [POS_XY - ORI - VEL - ACC - GYRO - POS_Z]
-cov_visual_odom: [+1.0e-2, +1.0e+8, +1.4e-5, +1.0e+12, +1.4e-5, +1.0e-2]
+cov_visual_odom: [+1.0e-7, +1.0e-2, +1.4e-5, +1.0e+12, +1.4e-5, +1.0e+1]
 
 # Covariance for the visual odometry when failure: [POS_XY - ORI - VEL - ACC - GYRO - POS_Z]
-cov_visual_odom_failure: [+1.0e+12, +1.0e+12, +1.0e+12, +1.0e+12, +1.0e+12, +1.0e+5]
+cov_visual_odom_failure: [+1.0e+12, +1.0e+12, +1.0e+12, +1.0e+12, +1.0e+12, +1.0e+12]
 
 # Covariance for the depth measurement
-cov_depth: 1.0e-12
+cov_depth: 1.0e-7
