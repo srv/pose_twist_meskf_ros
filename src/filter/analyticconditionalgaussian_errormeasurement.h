@@ -12,7 +12,7 @@
 #ifndef ANALYTICCONDITIONALGAUSSIAN_ERRORMEASUREMENT_H
 #define ANALYTICCONDITIONALGAUSSIAN_ERRORMEASUREMENT_H
 
-#include <pdf/analyticconditionalgaussian_additivenoise.h>
+#include <bfl/pdf/analyticconditionalgaussian_additivenoise.h>
 
 namespace BFL
 {

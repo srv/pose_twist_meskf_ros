@@ -10,7 +10,7 @@
 #ifndef DEPTH_MEASUREMENT_ERROR_VECTOR_H
 #define DEPTH_MEASUREMENT_ERROR_VECTOR_H
 
-#include <wrappers/matrix/vector_wrapper.h> // BFL vector class
+#include <bfl/wrappers/matrix/vector_wrapper.h> // BFL vector class
 #include <Eigen/Geometry> // Eigen vector and quaternion classes
 
 namespace pose_twist_meskf

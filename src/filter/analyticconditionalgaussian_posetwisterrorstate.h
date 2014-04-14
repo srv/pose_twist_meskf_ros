@@ -7,7 +7,7 @@
 #ifndef ANALYTICCONDITIONALGAUSSIAN_POSETWISTERRORSTATE_H
 #define ANALYTICCONDITIONALGAUSSIAN_POSETWISTERRORSTATE_H
 
-#include <pdf/analyticconditionalgaussian.h>
+#include <bfl/pdf/analyticconditionalgaussian.h>
 #include <Eigen/Dense>
 #include "nominal_state_vector.h"
 

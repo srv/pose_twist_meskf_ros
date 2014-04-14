@@ -9,7 +9,7 @@
 #include "pose_twist_meskf.h"
 #include "analyticconditionalgaussian_visualmeasurement.h"
 #include "analyticconditionalgaussian_depthmeasurement.h"
-#include "model/linearanalyticmeasurementmodel_gaussianuncertainty.h"
+#include <bfl/model/linearanalyticmeasurementmodel_gaussianuncertainty.h>
 #include "visual_measurement_error_vector.h"
 #include "depth_measurement_error_vector.h"
 #include "error_state_vector.h"
