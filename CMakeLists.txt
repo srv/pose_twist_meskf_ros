@@ -1,5 +1,4 @@
 cmake_minimum_required(VERSION 2.8.3)
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake-modules/")
 
 project(pose_twist_meskf_ros)
 find_package(catkin REQUIRED COMPONENTS 
@@ -37,15 +36,10 @@ find_package(Eigen REQUIRED)
 include_directories(${EIGEN_INCLUDE_DIRS})
 add_definitions(${EIGEN_DEFINITIONS})
 
-# Dependencies - BFL:
-# Use script to find BFL. If it's not installed, set G2O_INCLUDE_DIRS manually 
-# using -DG2O_INCLUDE_DIRS.
-find_package(BFL REQUIRED)
-include_directories(${BFL_INCLUDE_DIR})
-
+# Filter directories
 include_directories(src/filter)
 
-catkin_package()
+catkin_package(LIBRARIES orocos-bfl)
 
 # Add the Image Hashing library
 add_library(pose_twist_meskf 
@@ -67,4 +61,4 @@ add_executable(pose_twist_meskf_node
                src/nodes/pose_twist_meskf_node.cpp
                src/nodes/pose_twist_meskf_node_base.cpp)
 
-target_link_libraries(pose_twist_meskf_node ${Boost_LIBRARIES} ${catkin_LIBRARIES} ${BFL_LIBRARIES} pose_twist_meskf)
+target_link_libraries(pose_twist_meskf_node ${Boost_LIBRARIES} ${OROCOS_BFL_LIBRARIES} ${catkin_LIBRARIES} pose_twist_meskf)
