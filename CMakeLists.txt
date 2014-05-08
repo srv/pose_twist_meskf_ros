@@ -27,6 +27,9 @@ add_definitions("-DEIGEN_DONT_ALIGN_STATICALLY")
 # Dependencies:
 find_package(PkgConfig)
 
+# BFL:
+SET(OROCOS_BFL_LIBRARIES /opt/ros/hydro/lib/liborocos-bfl.so)
+
 # Dependencies - Boost:
 find_package(Boost REQUIRED COMPONENTS signals system)
 include_directories(${Boost_INCLUDE_DIRS})
@@ -39,7 +42,7 @@ add_definitions(${EIGEN_DEFINITIONS})
 # Filter directories
 include_directories(src/filter)
 
-catkin_package(LIBRARIES orocos-bfl)
+catkin_package()
 
 # Add the Image Hashing library
 add_library(pose_twist_meskf 
