@@ -71,13 +71,13 @@ public:
 protected:
   void initializeMeskf();
   void initializeParameters(const ros::NodeHandle& local_nh);
-  double readDoubleParameter(const ros::NodeHandle& local_nh, 
+  double readDoubleParameter(const ros::NodeHandle& local_nh,
     std::string paramName, std::string defaultValue);
 
-  // Callbacks and auxiliary functions. 
+  // Callbacks and auxiliary functions.
   void IMUCallback(const sensor_msgs::ImuConstPtr& msg);
   void visualCallback(const nav_msgs::OdometryConstPtr& msg);
-  void depthCallback(const auv_sensor_msgs::Depth& msg);  
+  void depthCallback(const auv_sensor_msgs::Depth& msg);
   void updateCallback();
 
 private:
@@ -85,8 +85,7 @@ private:
   ros::Subscriber subs_imu_;
   ros::Subscriber subs_visual_odom_;
   ros::Subscriber subs_depth_;
-  ros::Publisher publ_odom_;
-  ros::Publisher publ_odom_pre_;
+  ros::Publisher publ_pose_;
   ros::Publisher publ_gyro_drift_;
   ros::Publisher publ_accel_bias_;
   ros::Timer update_timer_;
@@ -116,7 +115,7 @@ private:
 
   // Use depth messages to compute z.
   bool use_depth_;
-  
+
   // Standard gravity vector in reference frame.
   Eigen::Vector3d G_VEC_;
 

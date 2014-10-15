@@ -11,6 +11,7 @@
 #include "error_state_vector.h"
 #include "visual_measurement_error_vector.h"
 #include "depth_measurement_error_vector.h"
+#include <exception>
 
 /**
  * @brief Default constructor.
@@ -38,8 +39,7 @@ PoseTwistMESKFNodeBase(): filter_initialized_(false)
                                 this);
 
   // Advertise output topics.
-  publ_odom_ = local_nh.advertise<nav_msgs::Odometry>("odometry", 10);
-  publ_odom_pre_ = local_nh.advertise<nav_msgs::Odometry>("odometry_pre", 10);
+  publ_pose_ = local_nh.advertise<nav_msgs::Odometry>("odometry", 10);
   publ_gyro_drift_ = local_nh.advertise<geometry_msgs::Vector3Stamped>("gyroscope_bias", 10);
   publ_accel_bias_ = local_nh.advertise<geometry_msgs::Vector3Stamped>("accelerometer_bias", 10);
 
@@ -97,7 +97,7 @@ void pose_twist_meskf::PoseTwistMESKFNodeBase::initializeMeskf()
   // Initialize the error state vector covariance
   PoseTwistMESKF::SymmetricMatrix covariance(ErrorStateVector::DIMENSION);
   if (use_topic_cov_)
-  {    
+  {
     covariance = 0.0;
     for (int i=0; i<3; i++)
     {
@@ -130,13 +130,18 @@ void pose_twist_meskf::PoseTwistMESKFNodeBase::initializeMeskf()
   vm_prev_.lin_vel_.z() = last_visual_msg_->twist.twist.linear.z;
   vm_timestamp_prev_ = timestamp;
 
-  filter_.setUpSystem(VAR_ACC_,VAR_GYRO_,VAR_ACC_BIAS_,VAR_GYRO_DRIFT_,G_VEC_);
-
-  filter_.setUpMeasurementModels();
-
-  filter_.initialize(state, covariance, ros::Time::now().toSec());
-
-  filter_initialized_ = true;
+  try
+  {
+    filter_.setUpSystem(VAR_ACC_, VAR_GYRO_, VAR_ACC_BIAS_, VAR_GYRO_DRIFT_, G_VEC_);
+    filter_.setUpMeasurementModels();
+    filter_.initialize(state, covariance, ros::Time::now().toSec());
+    filter_initialized_ = true;
+  }
+  catch(std::exception& e)
+  {
+    ROS_WARN("A problem occurred while initializing the filter, I will try again...");
+    filter_initialized_ = false;
+  }
 }
 
 /**
@@ -243,7 +248,7 @@ void pose_twist_meskf::PoseTwistMESKFNodeBase::initializeParameters(const ros::N
   // Depth covariance
   double cov_depth_val = readDoubleParameter(local_nh, "cov_depth", "1.0e-12");
   PoseTwistMESKF::SymmetricMatrix cov_depth(DepthMeasurementErrorVector::DIMENSION);
-  cov_depth(DepthMeasurementErrorVector::D_DEPTH_Z, 
+  cov_depth(DepthMeasurementErrorVector::D_DEPTH_Z,
     DepthMeasurementErrorVector::D_DEPTH_Z) = cov_depth_val;
   COV_DEPTH_ = cov_depth;
 
@@ -271,7 +276,7 @@ double pose_twist_meskf::PoseTwistMESKFNodeBase::readDoubleParameter(
   try
   {
     val = boost::lexical_cast<double>(param);
-  } 
+  }
   catch( boost::bad_lexical_cast const& ) {}
   return val;
 }
@@ -327,7 +332,7 @@ visualCallback(const nav_msgs::OdometryConstPtr& msg)
   vm_curr.lin_vel_.x() = msg->twist.twist.linear.x;
   vm_curr.lin_vel_.y() = msg->twist.twist.linear.y;
   vm_curr.lin_vel_.z() = msg->twist.twist.linear.z;
-  vm_curr.lin_acc_ = ( (vm_prev_.orientation_.inverse()*vm_curr.orientation_).toRotationMatrix() 
+  vm_curr.lin_acc_ = ( (vm_prev_.orientation_.inverse()*vm_curr.orientation_).toRotationMatrix()
     * vm_curr.lin_vel_- vm_prev_.lin_vel_ ) / (timestamp - vm_timestamp_prev_);
 
   // Save measurement
@@ -391,7 +396,7 @@ visualCallback(const nav_msgs::OdometryConstPtr& msg)
       covariance = COV_VISUAL_ODOM_;
     }
   }
-  
+
   filter_.addMeasurement(filter_.VISUAL, measurement, covariance, ros::Time::now().toSec());
   ROS_DEBUG("VISUAL_ODOM measurement encued");
 }
@@ -429,12 +434,12 @@ depthCallback(const auv_sensor_msgs::Depth& msg)
  */
 void pose_twist_meskf::PoseTwistMESKFNodeBase::updateCallback()
 {
-  // Check if filter is initialized
+    // Check if filter is initialized
   if (!filter_initialized_)
   {
-    if (last_visual_msg_ && use_depth_ && last_depth_msg_) 
+    if (last_visual_msg_ && use_depth_ && last_depth_msg_)
     {
-      // Filter needs one visual odometry message 
+      // Filter needs one visual odometry message
       // and one depth message to be initialized
       initializeMeskf();
     }
@@ -445,7 +450,7 @@ void pose_twist_meskf::PoseTwistMESKFNodeBase::updateCallback()
         initializeMeskf();
       }
     }
-      
+
     return;
   }
 
@@ -465,46 +470,46 @@ void pose_twist_meskf::PoseTwistMESKFNodeBase::updateCallback()
   ros::Time timestamp = ros::Time::now();
 
   // Publish messages
-  nav_msgs::Odometry odometry_msg;
-  odometry_msg.header.stamp = timestamp;
-  odometry_msg.header.frame_id = frame_id_;
-  odometry_msg.child_frame_id = child_frame_id_;
-  odometry_msg.pose.pose.position.x = state(NominalStateVector::POSITION_X);
-  odometry_msg.pose.pose.position.y = state(NominalStateVector::POSITION_Y);
-  odometry_msg.pose.pose.position.z = state(NominalStateVector::POSITION_Z);
-  odometry_msg.pose.pose.orientation.w = state(NominalStateVector::ORIENTATION_W);
-  odometry_msg.pose.pose.orientation.x = state(NominalStateVector::ORIENTATION_X);
-  odometry_msg.pose.pose.orientation.y = state(NominalStateVector::ORIENTATION_Y);
-  odometry_msg.pose.pose.orientation.z = state(NominalStateVector::ORIENTATION_Z);
-  odometry_msg.twist.twist.linear.x = state(NominalStateVector::LIN_VEL_X);
-  odometry_msg.twist.twist.linear.y = state(NominalStateVector::LIN_VEL_Y);
-  odometry_msg.twist.twist.linear.z = state(NominalStateVector::LIN_VEL_Z);
-  odometry_msg.twist.twist.angular.x = state(NominalStateVector::ANG_VEL_X);
-  odometry_msg.twist.twist.angular.y = state(NominalStateVector::ANG_VEL_Y);
-  odometry_msg.twist.twist.angular.z = state(NominalStateVector::ANG_VEL_Z);
+  nav_msgs::Odometry pose_msg;
+  pose_msg.header.stamp = timestamp;
+  pose_msg.header.frame_id = frame_id_;
+  pose_msg.child_frame_id = child_frame_id_;
+  pose_msg.pose.pose.position.x = state(NominalStateVector::POSITION_X);
+  pose_msg.pose.pose.position.y = state(NominalStateVector::POSITION_Y);
+  pose_msg.pose.pose.position.z = state(NominalStateVector::POSITION_Z);
+  pose_msg.pose.pose.orientation.w = state(NominalStateVector::ORIENTATION_W);
+  pose_msg.pose.pose.orientation.x = state(NominalStateVector::ORIENTATION_X);
+  pose_msg.pose.pose.orientation.y = state(NominalStateVector::ORIENTATION_Y);
+  pose_msg.pose.pose.orientation.z = state(NominalStateVector::ORIENTATION_Z);
+  pose_msg.twist.twist.linear.x = state(NominalStateVector::LIN_VEL_X);
+  pose_msg.twist.twist.linear.y = state(NominalStateVector::LIN_VEL_Y);
+  pose_msg.twist.twist.linear.z = state(NominalStateVector::LIN_VEL_Z);
+  pose_msg.twist.twist.angular.x = state(NominalStateVector::ANG_VEL_X);
+  pose_msg.twist.twist.angular.y = state(NominalStateVector::ANG_VEL_Y);
+  pose_msg.twist.twist.angular.z = state(NominalStateVector::ANG_VEL_Z);
   for (int i=0; i<3; i++)
   {
     for (int j=0; j<3; j++)
     {
-      odometry_msg.pose.covariance[6*i + j] =
+      pose_msg.pose.covariance[6*i + j] =
           covariance(ErrorStateVector::D_POSITION_X + i, ErrorStateVector::D_POSITION_X + j);
-      odometry_msg.pose.covariance[6*i + j + 3] =
+      pose_msg.pose.covariance[6*i + j + 3] =
           covariance(ErrorStateVector::D_POSITION_X + i, ErrorStateVector::D_ORIENTATION_X + j);
-      odometry_msg.pose.covariance[6*i + j + 18] =
+      pose_msg.pose.covariance[6*i + j + 18] =
           covariance(ErrorStateVector::D_ORIENTATION_X + i, ErrorStateVector::D_POSITION_X + j);
-      odometry_msg.pose.covariance[6*i + j + 21] =
+      pose_msg.pose.covariance[6*i + j + 21] =
           covariance(ErrorStateVector::D_ORIENTATION_X + i, ErrorStateVector::D_ORIENTATION_X + j);
-      odometry_msg.twist.covariance[6*i + j] =
+      pose_msg.twist.covariance[6*i + j] =
           covariance(ErrorStateVector::D_LIN_VEL_X + i, ErrorStateVector::D_LIN_VEL_X + j);
-      odometry_msg.twist.covariance[6*i + j + 3] =
+      pose_msg.twist.covariance[6*i + j + 3] =
           covariance(ErrorStateVector::D_LIN_VEL_X + i, ErrorStateVector::D_GYRO_DRIFT_X + j);
-      odometry_msg.twist.covariance[6*i + j + 18] =
+      pose_msg.twist.covariance[6*i + j + 18] =
           covariance(ErrorStateVector::D_GYRO_DRIFT_X + i, ErrorStateVector::D_LIN_VEL_X + j);
-      odometry_msg.twist.covariance[6*i + j + 21] =
+      pose_msg.twist.covariance[6*i + j + 21] =
           covariance(ErrorStateVector::D_GYRO_DRIFT_X + i, ErrorStateVector::D_GYRO_DRIFT_X + j);
     }
   }
-  publ_odom_.publish(odometry_msg);
+  publ_pose_.publish(pose_msg);
 
   tf::Vector3 t   ( state(NominalStateVector::POSITION_X),
                     state(NominalStateVector::POSITION_Y),

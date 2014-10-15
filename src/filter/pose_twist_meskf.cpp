@@ -113,6 +113,7 @@ void pose_twist_meskf::PoseTwistMESKF::setUpSystem(const double& acc_var,
                                                                         acc_bias_var,
                                                                         gyro_drift_var,
                                                                         gravity);
+
   system_model_ = new BFL::AnalyticSystemModelGaussianUncertainty(system_pdf_);
 }
 
@@ -211,7 +212,7 @@ bool pose_twist_meskf::PoseTwistMESKF::addMeasurement(const MeasurementType& m,
 {
   if (t<filter_time_)
     return false;
-    
+
   measurement_queues_[m].push(Measurement(t,z,Q));
   return true;
 }
@@ -249,7 +250,7 @@ bool pose_twist_meskf::PoseTwistMESKF::update()
     {
       while( (!input_queue_.empty()) &&
              (input_queue_.top().t_<=measurement_queues_[qnext].top().t_) ) // process all inputs previous to the next measurement to be used for update
-      { 
+      {
         // Predict for every input previous to the next measurement
         success=updateFilterSys(input_queue_.top());
         if (!success) std::cout << "error in prediction state, input " << processed_input; // error in prediction
